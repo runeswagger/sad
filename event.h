@@ -8,9 +8,11 @@
 #include <linux/input.h>
 #include <sys/select.h>
 
-int event_init();
-int seteventsource(const char * path);
+#define MAX_EVENT_FDS 256
+
+//minor api regression, no explicit cleanup
+//os will close the file descriptors, but it's lazy
+int addeventsource(const char * path);
 int pollevent(struct input_event * event);
-int event_close();
 
 #endif //H_EVENT

@@ -38,7 +38,7 @@ int main(){
 	pthread_t vlc;
 
 	pthread_create(&vlc, NULL, (void*(*)(void*))system, CMD_VLC);
-	seteventsource(DEFAULT_EVENT_DEVICE);
+	addeventsource(DEFAULT_EVENT_DEVICE);
 
 	vlcsock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if(vlcsock == -1) { perror("socket"); running = false; }
@@ -92,7 +92,7 @@ int main(){
 		_delay_ms(1000/60); //60hz polling
 	}
 
-	pthread_join(vlc);
+	pthread_join(vlc, NULL);
 	
 	close(vlcsock);
 	
