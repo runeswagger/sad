@@ -10,8 +10,9 @@
 //commands to invoke external programs
 #define CMD_VOLUMEUP "amixer -q -- sset Master 1dB+"
 #define CMD_VOLUMEDOWN "amixer -q -- sset Master 1dB-"
+
 //--no-playlist-autostart
-#define CMD_VLC "cvlc -Irc --rc-unix=\"/home/timothy/vlc.sock\" \"/home/timothy/library\" >/dev/null"
+#define CMD_VLC "cvlc -Irc --rc-unix=\"/home/timothy/vlc.sock\" \"/home/timothy/library\" 2>/dev/null >/dev/null"
 
 char gpios[] = { //this is largely useless, it lists some promising
 	//gpio pins on the raspberrypi v1 header
@@ -28,6 +29,39 @@ typedef enum {
 
 sad_status_t status;
 
+const char * cmdline_gen(const char * cmd, const char ** args, int nargs){
+	//i want to pass a tailored command line to system()
+	int size = 0, i = 0, curser = 0;
+	char * cmdline = NULL;
+	size += strlen(cmd);
+
+	i = nargs;
+	while(--i){
+		size += strlen(args[i]);
+	}
+
+	size -= nargs - 1; //strip null terminators
+	
+	cmdline = malloc(size);
+	if(cmdline == NULL) return NULL;
+
+	i = 0;
+	while(cmd[i]) {
+		cmdline[cursor++] = cmd[i];
+		i++;
+	}
+	
+	while(nargs--){
+		i = 0;
+		while(*args[i]
+			cmdline[cursor++] = *args[i];
+			i++;
+		}
+	}
+	  
+	return cmdline;
+}
+	
 int main(){
 	//handle some events, so i can make a lean gpio-keys event polling loop
 	struct input_event event;
@@ -92,7 +126,7 @@ int main(){
 		_delay_ms(1000/60); //60hz polling
 	}
 
-	pthread_join(vlc, NULL);
+	pthread_join(vlc);
 	
 	close(vlcsock);
 	
