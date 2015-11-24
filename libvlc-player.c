@@ -1,6 +1,9 @@
 //use libvlc directly, because vlc can't consistantly bring up the rc interface
 #include <vlc/vlc.h>
 
+libvlc_instance_t *vlc;
+libvlc_media_player_t *media_player;
+
 void print_audio_outputs(libvlc_instance_t *vlc){
 	//print available audio outputs
 	libvlc_audio_output_t *outputs, *cur;
@@ -15,6 +18,7 @@ void print_audio_outputs(libvlc_instance_t *vlc){
 
 	libvlc_audio_output_list_release(outputs);
 }
+
 void print_audio_output_devices(libvlc_instance_t * vlc, const char * psz_name){
 	//print available audio outputs
 	libvlc_audio_output_device_t *devices, *cur;
@@ -30,13 +34,15 @@ void print_audio_output_devices(libvlc_instance_t * vlc, const char * psz_name){
 	libvlc_audio_output_device_list_release(devices);
 }
 
+void sad_vlc_exit_callback(void * data){
+	//this cleans up the libvlc structures
+
+}
+
 int main(int argc, char *argv[]){
 	//play a music file
 	if (argc < 2) return -1;
-	libvlc_instance_t *vlc;
-	libvlc_media_player_t *media_player;
 	libvlc_media_t *media = NULL;
-	int duration = 0;
 
 	//vlc setup
 	vlc = libvlc_new(argc, (const char * const *) argv);
