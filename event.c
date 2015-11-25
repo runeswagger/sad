@@ -18,25 +18,40 @@ int addeventsource(const char * path){
 	} 
 }
 
+void printsourcenames(){
+	//get name of device
+	char name[255];
+	int i = 0;
+	
+	while(i < nfds){
+		name[ioctl(fds[i], EVIOCGNAME(sizeof(name)), name)] = 0; //append null terminator
+		printf("Name: %s\n", name);
+		i++;
+	}
+}
+
+void printsourcephys(){
+	//get physical location of dev file
+	char phys[255];
+	int i = 0;
+
+	while(i < nfds){
+		phys[ioctl(fds[i], EVIOCGPHYS(sizeof(phys)), phys)] = 0;
+		printf("Phys: %s\n", phys);
+		i++;
+	}
+}
+
 void printsourceinfo(){
 	//i can't access the fd directly so i'll put my ioctl stuff here
 	//and eventually refactor into a getname etc type of thing
 	int fd = fds[nfds-1];
 	struct input_id id;
-	char name[255]; //device name
-	char phys[255]; //physical name
 	char uid[255]; //unique identifier
 	
 	//get id of device
 	ioctl(fd, EVIOCGID, &id); //get id
 
-	//get name of device
-	name[ioctl(fd, EVIOCGNAME(sizeof(name)), name)] = 0;
-	printf("Name: %s\n", name);
-
-	//get physical location of dev file
-	phys[ioctl(fd, EVIOCGPHYS(sizeof(phys)), phys)] = 0;
-	printf("Phys: %s\n", phys);
 
 	//get unique identifier
 	uid[ioctl(fd, EVIOCGUNIQ(sizeof(uid)), uid)] = 0;

@@ -3,6 +3,8 @@
 #include "event.h"
 #include "delay.h"
 
+void printsourcenames();
+
 int main(int argc, char *argv[]){
 	//poll for and print events
 	int delay = argc > 1 ? atoi(&argv[1][2]) : 1000/60; //60fps
@@ -12,6 +14,7 @@ int main(int argc, char *argv[]){
 	addeventsource("/dev/input/event0");
 	addeventsource("/dev/input/event12");
 
+	printsourcenames();
 	while(running){
 		while(pollevent(&event)){
 			printf("Type: %i\nCode: %i\nValue: %i\n\n", event.type, event.code, event.value);

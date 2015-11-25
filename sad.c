@@ -11,6 +11,8 @@
 #define CMD_VOLUMEUP "amixer -q -- sset Master 1dB+"
 #define CMD_VOLUMEDOWN "amixer -q -- sset Master 1dB-"
 
+#define KEYBOARD_QUIT_ENABLED
+
 char gpios[] = { //this is largely useless, it lists some promising
 	//gpio pins on the raspberrypi v1 header
 	4,17,27,22,23,24,25,18 }; //no useful alts
@@ -67,7 +69,7 @@ int main(){
 	struct input_event event;
 	const char * cmdline = cmdline_gen("cvlc", (const char *[]){ "-Ioldrc", "--rc-unix=/home/timothy/vlc.sock", "/home/timothy/library", "2>/dev/null", ">/dev/null" }, 5);
 	int running = true; //set this to 0 if you'd like to exit the mainloop for any reason
-	int rc; //some generic iterators and temporaries
+	int rc,quit_pending = 0; //some generic iterators and temporaries
 	int vlcsock; //vlc socket handle
 	struct sockaddr_un addr = { AF_UNIX, "/home/timothy/vlc.sock" }; //default sockaddr
 	pthread_t vlc;
@@ -79,15 +81,17 @@ int main(){
 	vlcsock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if(vlcsock == -1) { perror("socket"); running = false; }
 
-	retry:
-	rc = connect(vlcsock, (struct sockaddr *)&addr, sizeof(struct sockaddr_un));
-	if (rc != 0) {
-		perror("connect");
-		running = false;
-		printf("trying again in 1 second...\n");
-		_delay_ms(1000);
-		goto retry;
-	} else { running = true; }
+	do {
+		rc = connect(vlcsock, (struct sockaddr *)&addr, sizeof(struct sockaddr_un));
+		if(rc != 0){
+			perror("connect");
+			running = false;
+			printf("trying again in 1 second...\n");
+			_delay_ms(1000);
+		} else {
+			running = true;
+		}
+	} while(rc != 0); //connection is needed for proper function
 
 	write(vlcsock, "random\n", 7);
 	
@@ -121,12 +125,22 @@ int main(){
 							printf("Prev Song.\n");
 							write(vlcsock, "prev\n", 5);
 							break;
+						#ifdef KEYBOARD_QUIT_ENABLED
 						case KEY_Q:
-							printf("Qutting...\n");
-							write(vlcsock, "quit\n", 5);
-							running = 0;
+							//q twice exits
+							if ( quit_pending ) {
+								printf("Qutting...\n");
+								write(vlcsock, "quit\n", 5);
+								running = 0;
+							} else {
+								quit_pending++;
+							}
 							break;
+						#endif
 						default:
+							#ifdef KEYBOARD_QUIT_ENABLED
+							quit_pending = 0;
+							#endif
 							break;
 					}
 				default:
