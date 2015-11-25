@@ -64,14 +64,22 @@ const char * cmdline_gen(const char * cmd, const char ** args, int nargs){
 	return cmdline;
 }
 	
-int main(){
+int main(int argc, char *argv[]){
 	//handle some events, so i can make a lean gpio-keys event polling loop
+	if (argc < 3) {
+		printf("Usage:\n\tsad vlc socket_path library_path\n");
+		return -1;
+	}
 	struct input_event event;
-	const char * cmdline = cmdline_gen("cvlc", (const char *[]){ "-Ioldrc", "--rc-unix=/home/timothy/vlc.sock", "/home/timothy/library", "2>/dev/null", ">/dev/null" }, 5);
+	const char * cmdline = cmdline_gen("cvlc", (const char *[]){ "-Ioldrc", "--rc-unix",  argv[1], argv[2], "2>/dev/null", ">/dev/null" }, 6);
 	int running = true; //set this to 0 if you'd like to exit the mainloop for any reason
-	int rc,quit_pending = 0; //some generic iterators and temporaries
+	int rc,quit_pending = 0, i = 0; //some generic iterators and temporaries
 	int vlcsock; //vlc socket handle
-	struct sockaddr_un addr = { AF_UNIX, "/home/timothy/vlc.sock" }; //default sockaddr
+	struct sockaddr_un addr = { AF_UNIX, { 0 } }; //default sockaddr
+	while(argv[1][i]) {
+		addr.sun_path[i] = argv[1][i];
+		i++;
+	}
 	pthread_t vlc;
 
 	printf("Cmdline: %s\n", cmdline);
@@ -93,6 +101,7 @@ int main(){
 		}
 	} while(rc != 0); //connection is needed for proper function
 
+	printf("Double press q to quit.\n");
 	write(vlcsock, "random\n", 7);
 	
 	while(running){
