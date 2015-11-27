@@ -11,12 +11,11 @@ int main(int argc, char *argv[]){
 	struct input_event event;
 	int running = 1;
 	
-	addeventsource("/dev/input/event0");
-	addeventsource("/dev/input/event12");
-
-	printsourcenames();
+	event_add_source("/dev/input/event0");	
+	event_get_name(0);
+	
 	while(running){
-		while(pollevent(&event)){
+		while(event_poll(&event)){
 			printf("Type: %i\nCode: %i\nValue: %i\n\n", event.type, event.code, event.value);
 			if(event.type == EV_KEY && event.value == 1 && event.code == KEY_Q) running = 0; //quit program
 			_delay_ms(delay);

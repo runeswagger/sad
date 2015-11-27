@@ -2,9 +2,11 @@
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <dirent.h>
 
 #include "event.h"
 #include "delay.h"
+
 #define DEFAULT_EVENT_DEVICE "/dev/input/event0"
 
 //commands to invoke external programs
@@ -63,7 +65,38 @@ const char * cmdline_gen(const char * cmd, const char ** args, int nargs){
 	  
 	return cmdline;
 }
+
+void event_add_all_inputs(){
+	//scan /dev/input and add all the input devices
+	int fd;
+	DIR *d;
+	struct dirent *e;
+	char * pathbuf;
+	int pathsize = 0, pathbufsize = 0;
 	
+	d = opendir("/dev/input");
+	if (d == NULL) perror("opendir");
+
+	while ((e = readdir(d)) != NULL){
+		if(e->d_type == DT_CHR){
+			pathsize = strlen("/dev/input/") + strlen(e->d_name); //size of path
+			if (pathsize > pathbufsize) {
+				//alloca usually just decrements the stack pointer
+				//so calling alloca on the size difference
+				//will typically just push pathbuf farther up on the stack
+				pathbuf = alloca(pathsize - pathbufsize);
+			}
+			strcpy(pathbuf, "/dev/input/");
+			strcat(pathbuf, e->d_name);
+			printf("%s\n", pathbuf);
+			event_add_source(pathbuf);
+		}
+	}
+
+	event_get_name(0);
+	closedir(d);
+}
+
 int main(int argc, char *argv[]){
 	//handle some events, so i can make a lean gpio-keys event polling loop
 	if (argc < 3) {
@@ -84,8 +117,9 @@ int main(int argc, char *argv[]){
 
 	printf("Cmdline: %s\n", cmdline);
 	pthread_create(&vlc, NULL, (void*(*)(void*))system, (void * restrict) cmdline);
-	addeventsource(DEFAULT_EVENT_DEVICE);
 
+	event_add_all_inputs();
+	
 	vlcsock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if(vlcsock == -1) { perror("socket"); running = false; }
 
@@ -103,9 +137,9 @@ int main(int argc, char *argv[]){
 
 	printf("Double press q to quit.\n");
 	write(vlcsock, "random\n", 7);
-	
+
 	while(running){
-		while(pollevent(&event)){
+		while(event_poll(&event)){
 			switch(event.type){
 				case EV_KEY:
 					if(event.value == 0){

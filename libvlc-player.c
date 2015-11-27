@@ -36,7 +36,8 @@ void print_audio_output_devices(libvlc_instance_t * vlc, const char * psz_name){
 
 void sad_vlc_exit_callback(void * data){
 	//this cleans up the libvlc structures
-
+	libvlc_media_player_release(media_player);
+	libvlc_release(vlc);
 }
 
 int main(int argc, char *argv[]){
@@ -60,9 +61,7 @@ int main(int argc, char *argv[]){
 	duration = libvlc_media_player_get_length(media_player);
 	while(libvlc_media_player_get_position(media_player) < 1.0f) sleep(1);
 
-	//vlc exit
-	libvlc_media_player_release(media_player);
-	libvlc_release(vlc);
+	sad_vlc_exit_callback(NULL);
 	
 	return 0;
 }

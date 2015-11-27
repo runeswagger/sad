@@ -3,22 +3,77 @@
 //i think these get zero initialized in C
 static int fds[MAX_EVENT_FDS];
 static int nfds;
-	 
-int addeventsource(const char * path){
-	//we're moving to an aggregating event handling, so we keep a list of fds
-	if(nfds >= MAX_EVENT_FDS) return -1; //TODO: ensure standard convention for error returns	
-	fds[nfds] = open(path, O_RDONLY);
 
-	if(fds[nfds] != -1) {
-		nfds++;
-		return fds[nfds-1];
-	} else {
-		perror("open");
-		return -1;
-	} 
+int event_debug_dump_fds(){
+	int i = 0;
+	printf("[");
+	while (i < nfds){
+		printf(" %i ", fds[i]);
+	}
+	printf("]\n");
+	return i;
 }
 
-void printsourcenames(){
+int event_fd_compare(int fd1, int fd2){
+	//test if both fds refer to the same file
+	struct stat stat1, stat2;
+
+	if(fstat(fd1, &stat1) < 0) return -1;
+	if(fstat(fd2, &stat2) < 0) return -1;
+
+	return (stat1.st_dev == stat2.st_dev) && (stat1.st_ino == stat2.st_ino);
+}
+
+int event_index_from_fd(int fd){
+	//search fds for a given fd
+	int index = 0;
+
+	while(index < nfds && fds[index] != fd) index++;
+
+	return (index == nfds) ? -1 : index; //-1 if array search and no match found
+}
+
+int event_add_fd(int fd){
+	//add an open fd
+	if(nfds >= MAX_EVENT_FDS || fd == -1) return -1;
+	int index = event_index_from_fd(fd); //this searches fds and returns -1 if no match
+	
+	if (index == -1){
+		fds[nfds] = fd;
+		nfds++;
+	} else {
+		printf("duplicate!\n");
+	}
+	
+	return (index == -1) ? -1 : fd;
+}
+
+int event_remove_fd(int fd){
+	int index = event_index_from_fd(fd);
+
+	if (index != -1) fds[index] = -1;
+
+	return (index != -1);
+}
+
+int event_add_source(const char * path){
+	//we're moving to an aggregating event handling, so we keep a list of fds
+	int fd = open(path, O_RDONLY);
+
+	int i = 0;
+
+	while(i < nfds){
+		//break on match
+		if(event_fd_compare(fd, fds[i])){
+			break;
+		}
+		i++;
+	}
+
+	return (i < nfds) ? /* match found when comparing fds */ -1 : /* new file */ event_add_fd(fd);
+}
+
+void event_get_name(int fd){
 	//get name of device
 	char name[255];
 	int i = 0;
@@ -30,7 +85,7 @@ void printsourcenames(){
 	}
 }
 
-void printsourcephys(){
+void event_get_phys(int fd){
 	//get physical location of dev file
 	char phys[255];
 	int i = 0;
@@ -42,7 +97,7 @@ void printsourcephys(){
 	}
 }
 
-void printsourceinfo(){
+void event_get_info(){
 	//i can't access the fd directly so i'll put my ioctl stuff here
 	//and eventually refactor into a getname etc type of thing
 	int fd = fds[nfds-1];
@@ -58,7 +113,7 @@ void printsourceinfo(){
 	printf("UID: %s\n", uid);
 }
 
-int pollevent(struct input_event * event){
+int event_poll(struct input_event * event){
 	//get next event
 	if(!nfds) return 0; //no sources opened
 	int r = 0, maxfd = fds[nfds], i = 0;
