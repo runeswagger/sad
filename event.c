@@ -41,9 +41,7 @@ int event_add_fd(int fd){
 	if (index == -1){
 		fds[nfds] = fd;
 		nfds++;
-	} else {
-		printf("duplicate!\n");
-	}
+	} 
 	
 	return (index == -1) ? -1 : fd;
 }
@@ -57,7 +55,7 @@ int event_remove_fd(int fd){
 }
 
 int event_add_source(const char * path){
-	//we're moving to an aggregating event handling, so we keep a list of fds
+	//open path and add the fd to fds
 	int fd = open(path, O_RDONLY);
 
 	int i = 0;
@@ -120,7 +118,7 @@ void event_get_info(){
 int event_poll(struct input_event * event){
 	//get next event
 	if(!nfds) return 0; //no sources opened
-	int r = 0, maxfd = fds[nfds], i = 0;
+	int maxfd = fds[nfds], i = 0;
 	struct timeval tv = {.tv_sec = 0, .tv_usec = 0 };
 	fd_set rfds;
 
@@ -137,10 +135,10 @@ int event_poll(struct input_event * event){
 	do {
 		--i;
 		if(FD_ISSET(fds[i], &rfds)){ //always breaks on the newest one
-			r = read(fds[i], event, sizeof(struct input_event));
+			read(fds[i], event, sizeof(struct input_event));
 			break;
 		}
 	} while(i);
 	
-	return r;
+	return i;
 }
