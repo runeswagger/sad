@@ -8,6 +8,10 @@ event-test:
 
 libvlc-player:
 	gcc -o libvlc-player libvlc-player.c `pkg-config --cflags --libs libvlc`
+
+documentation:
+	doxygen
 	
 clean:
 	rm -f sad event-test libvlc-player
+	rm -rf doc/*
