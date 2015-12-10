@@ -77,6 +77,8 @@ void event_get_name(int fd){
 	//get name of device
 	char name[255];
 	int i = 0;
+
+	(void) fd;
 	
 	while(i < nfds){
 		name[ioctl(fds[i], EVIOCGNAME(sizeof(name)), name)] = 0; //append null terminator
@@ -90,6 +92,8 @@ void event_get_phys(int fd){
 	char phys[255];
 	int i = 0;
 
+	(void) fd;
+	
 	while(i < nfds){
 		phys[ioctl(fds[i], EVIOCGPHYS(sizeof(phys)), phys)] = 0;
 		printf("Phys: %s\n", phys);
