@@ -3,6 +3,8 @@
  * in event.c because event.c is supposed to be lightweight
  * so programs that want to open every input device can
  * include this c file */
+#ifndef _C_EVENT_DEV_INPUT
+#define _C_EVENT_DEV_INPUT
 #include <dirent.h>
 #include <string.h>
 
@@ -37,3 +39,4 @@ void event_add_all_inputs(){
 	event_get_name(0);
 	closedir(d);
 }
+#endif //_C_EVENT_DEV_INPUT
