@@ -6,6 +6,7 @@
 
 #include "event.h"
 #include "delay.h"
+#include "event-dev-input.c"
 
 #define DEFAULT_EVENT_DEVICE "/dev/input/event0"
 
@@ -66,37 +67,6 @@ const char * cmdline_gen(const char * cmd, const char ** args, int nargs){
 	return cmdline;
 }
 
-void event_add_all_inputs(){
-	//scan /dev/input and add all the input devices
-	int fd;
-	DIR *d;
-	struct dirent *e;
-	char * pathbuf;
-	int pathsize = 0, pathbufsize = 0;
-	
-	d = opendir("/dev/input");
-	if (d == NULL) perror("opendir");
-
-	while ((e = readdir(d)) != NULL){
-		if(e->d_type == DT_CHR){
-			pathsize = strlen("/dev/input/") + strlen(e->d_name); //size of path
-			if (pathsize > pathbufsize) {
-				//alloca usually just decrements the stack pointer
-				//so calling alloca on the size difference
-				//will typically just push pathbuf farther up on the stack
-				pathbuf = alloca(pathsize - pathbufsize);
-			}
-			strcpy(pathbuf, "/dev/input/");
-			strcat(pathbuf, e->d_name);
-			printf("%s\n", pathbuf);
-			event_add_source(pathbuf);
-		}
-	}
-
-	event_get_name(0);
-	closedir(d);
-}
-
 int main(int argc, char *argv[]){
 	//handle some events, so i can make a lean gpio-keys event polling loop
 	if (argc < 3) {
@@ -136,7 +106,8 @@ int main(int argc, char *argv[]){
 	} while(rc != 0); //connection is needed for proper function
 
 	printf("Double press q to quit.\n");
-	write(vlcsock, "random\n", 7);
+	write(vlcsock, "random on\n", 10); //enable shuffle
+	write(vlcsock, "loop on\n", 8); //enable loop
 
 	while(running){
 		while(event_poll(&event)){

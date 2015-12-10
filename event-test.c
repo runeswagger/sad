@@ -13,6 +13,8 @@ int main(int argc, char *argv[]){
 	
 	event_add_source("/dev/input/event0");	
 	event_get_name(0);
+
+	event_debug_dump_fds();
 	
 	while(running){
 		while(event_poll(&event)){
