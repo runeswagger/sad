@@ -3,6 +3,7 @@
 //i think these get zero initialized in C
 static int fds[MAX_EVENT_FDS];
 static int nfds;
+static char info[EVENT_STRING_BUF_SIZE];
 
 int event_debug_dump_fds(){
 	int i = 0;
@@ -71,48 +72,30 @@ int event_add_source(const char * path){
 	return (i < nfds) ? /* match found when comparing fds */ -1 : /* new file */ event_add_fd(fd);
 }
 
-void event_get_name(int fd){
+char * event_get_name(int fd){
 	//get name of device
-	char name[255];
-	int i = 0;
-
-	(void) fd;
-	
-	while(i < nfds){
-		name[ioctl(fds[i], EVIOCGNAME(sizeof(name)), name)] = 0; //append null terminator
-		printf("Name: %s\n", name);
-		i++;
-	}
+	info[ioctl(fds[event_index_from_fd(fd)], EVIOCGNAME(sizeof(info)), info)] = 0; //append null terminator
+	return info;
 }
 
-void event_get_phys(int fd){
+char * event_get_phys(int fd){
 	//get physical location of dev file
-	char phys[255];
-	int i = 0;
-
-	(void) fd;
-	
-	while(i < nfds){
-		phys[ioctl(fds[i], EVIOCGPHYS(sizeof(phys)), phys)] = 0;
-		printf("Phys: %s\n", phys);
-		i++;
-	}
+	info[ioctl(fds[event_index_from_fd(fd)], EVIOCGPHYS(sizeof(info)), info)] = 0;
+	return info;
 }
 
-void event_get_info(){
-	//i can't access the fd directly so i'll put my ioctl stuff here
-	//and eventually refactor into a getname etc type of thing
-	int fd = fds[nfds-1];
-	struct input_id id;
-	char uid[255]; //unique identifier
-	
-	//get id of device
-	ioctl(fd, EVIOCGID, &id); //get id
-
-
+char * event_get_info(int fd){
 	//get unique identifier
-	uid[ioctl(fd, EVIOCGUNIQ(sizeof(uid)), uid)] = 0;
-	printf("UID: %s\n", uid);
+	info[ioctl(fds[event_index_from_fd(fd)], EVIOCGUNIQ(sizeof(info)), info)] = 0;
+	return info;
+}
+
+struct input_id * event_get_id(int fd){
+	static struct input_id id;
+
+	ioctl(fds[event_index_from_fd(fd)], EVIOCGID, &id);
+
+	return &id;
 }
 
 int event_poll(struct input_event * event){
@@ -142,3 +125,31 @@ int event_poll(struct input_event * event){
 	
 	return i;
 }
+
+int event_is_newer(struct input_event *a, struct input_event *b){
+	int newer;
+	if(a->time.tv_sec > b->time.tv_sec && a->time.tv_usec > b->time.tv_usec){
+		newer = 1;
+	} else if (a->time.tv_sec == b->time.tv_sec && a->time.tv_usec == b->time.tv_usec){
+		newer = 0;
+	} else {
+		newer = -1;
+	}
+
+	return newer;
+}
+
+int event_compare(struct input_event *a, struct input_event *b){
+	return ((a->type == b->type)&&(a->code == b->code)&&(a->value == b->value));
+}
+
+//C99 is iffy on the inline usage, but this prototype will mean that event.o contains
+//the real version of event_copy in case the compiler can't inline it for some reason
+extern struct input_event* event_copy(struct input_event *src, struct input_event *dest);
+
+inline struct input_event* event_copy(struct input_event *src, struct input_event *dest){
+	return memcpy(dest, src, sizeof(struct input_event));
+}
+
+	
+

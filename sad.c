@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <dirent.h>
+#include <string.h>
 
 #include "event.h"
 #include "delay.h"
@@ -21,15 +22,6 @@ char gpios[] = { //this is largely useless, it lists some promising
 	4,17,27,22,23,24,25,18 }; //no useful alts
 
 typedef enum { false, true } bool;
-typedef enum {
-	SAD_PLAY,
-	SAD_PAUSE,
-	SAD_STOP,
-	SAD_QUIT,
-	SAD_WHATEVER
-} sad_status_t;
-
-sad_status_t status;
 
 const char * cmdline_gen(const char * cmd, const char ** args, int nargs){
 	//i want to pass a tailored command line to system()
@@ -73,18 +65,15 @@ int main(int argc, char *argv[]){
 		printf("Usage:\n\tsad vlc socket_path library_path\n");
 		return -1;
 	}
-	struct input_event event;
+	struct input_event event = { }, last = { };
 	const char * cmdline = cmdline_gen("cvlc", (const char *[]){ "-Ioldrc", "--rc-unix",  argv[1], argv[2], "2>/dev/null", ">/dev/null" }, 6);
 	int running = true; //set this to 0 if you'd like to exit the mainloop for any reason
-	int rc,quit_pending = 0, i = 0; //some generic iterators and temporaries
+	int rc; //some generic iterators and temporaries
 	int vlcsock; //vlc socket handle
-	struct sockaddr_un addr = { AF_UNIX, { 0 } }; //default sockaddr
-	while(argv[1][i]) {
-		addr.sun_path[i] = argv[1][i];
-		i++;
-	}
+	struct sockaddr_un addr = { AF_UNIX, { } }; //default sockaddr
 	pthread_t vlc;
 
+	memcpy(addr.sun_path, argv[1], strlen(argv[1]));
 	printf("Cmdline: %s\n", cmdline);
 	pthread_create(&vlc, NULL, (void*(*)(void*))system, (void * restrict) cmdline);
 
@@ -105,7 +94,7 @@ int main(int argc, char *argv[]){
 		}
 	} while(rc != 0); //connection is needed for proper function
 
-	printf("Double press q to quit.\n");
+	printf("press q twice in 1s to quit.\n");
 	write(vlcsock, "random on\n", 10); //enable shuffle
 	write(vlcsock, "loop on\n", 8); //enable loop
 
@@ -142,26 +131,25 @@ int main(int argc, char *argv[]){
 						#ifdef KEYBOARD_QUIT_ENABLED
 						case KEY_Q:
 							//q twice exits
-							if ( quit_pending ) {
+							if (event_compare(&event, &last) &&
+									(event.time.tv_sec - last.time.tv_sec) < 1) {
 								printf("Qutting...\n");
 								write(vlcsock, "quit\n", 5);
 								running = 0;
 							} else {
-								quit_pending++;
+								//store previous event
+								event_copy(&event, &last);
 							}
 							break;
 						#endif
 						default:
-							#ifdef KEYBOARD_QUIT_ENABLED
-							quit_pending = 0;
-							#endif
 							break;
 					}
 				default:
 					break;
 			}
-		}
 
+		}
 		_delay_ms(1000/60); //60hz polling
 	}
 

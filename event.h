@@ -10,8 +10,10 @@
 #include <linux/input.h>
 #include <sys/select.h>
 #include <sys/stat.h>
+#include <string.h>
 
 #define MAX_EVENT_FDS 256
+#define EVENT_STRING_BUF_SIZE 256
 
 /** \brief adds an fd to fd pool
  *  \param fd fd to add
@@ -45,25 +47,74 @@ int event_add_source(const char * path);
  *  \return the source fd of the event, or 0
  *
  * This function reads the next event from any open source into the pointer event.
- * It returns 0 if no events are pending or the event's source fd otherwise */
+ * It returns 0 if no events are pending or the event's source fd otherwise. The fd pool
+ * is iterated and the first fd ready to read is returned, this means the last source
+ * added is always read first. It's possible that a heavy event stream might result
+ * in dropped events when a lot of sources are present. */
 int event_poll(struct input_event * event);
 
-/** \brief gets name of event source
- *  \param fd ignored
- *  \note unstable api
+/** \brief compares 2 events
+ *  \param a an event pointer
+ *  \param b another event pointer
+ *  \return 1 if events match else 0
  *
- *  This just runs the ioctl for getting the name of the input device. It will be reworked
- * in the future to search for fd in the pool and return a string. Right now it just prints out
- * the name of all open sources to stdout. For debugging purposes only do not use.*/
-void event_get_name(int fd);
+ * This function compares two events and determines if they match or not.
+ * The timestamp is ignored, use event_is_newer to check timestamps. */
+int event_compare(struct input_event *a, struct input_event *b);
+
+/** \brief compare the timestamps of 2 events
+ *  \param a event to test
+ *  \param b event tested agains
+ *  \return 1 if a > b, 0 if a == b and -1 if a < b
+ *
+ * Compare the timestamps of two events. */
+int event_is_newer(struct input_event *a, struct input_event *b);
+
+/** \brief copy an input event
+ *  \param src source event
+ *  \param dest event
+ *  \return pointer to dest
+ *  \note this is supposed to be defined inline but i'm not sure how that works
+ * 		worst case is you get a real function instead of inlined code
+ * 
+ * wraps memcpy of src to dest. */
+struct input_event* event_copy(struct input_event *src, struct input_event *dest);
+
+/** \brief gets input id of source
+ *  \param fd fd to get input id of
+ *  \return pointer to struct input_id
+ *  \note all get_info functions share a buffer, caller must copy value before
+ * 		calling another event_get_foo.
+ * 
+ * This function populates a statically allocated buffer with information from ioctl. */
+struct input_id * event_get_id(int fd);
+
+/** \brief gets name of event source
+ *  \param fd fd to get name of
+ *  \return char * name
+ *  \note all get_info functions share a buffer, caller must copy value before
+ * 		calling another event_get_foo.
+ * 
+ * Populates static buffer with name of input device via ioctls.*/
+char * event_get_name(int fd);
 
 /** \brief gets phys of event source
- *  \param fd ignored
- *  \note unstable api
+ *  \param fd fd to get phys of
+ *  \return char * phys
+ *  \note all get_info functions share a buffer, caller must copy value before
+ * 		calling another event_get_foo.
  *
- *  This runs the ioctl to get the phys of all fds in the pool. API unstable for debugging puposes
- * only */
-void event_get_phys(int fd);
+ * Populates static buffer with info from ioctl.*/
+char * event_get_phys(int fd);
+
+/** \brief get input device info
+ *  \param fd fd of input device
+ *  \return char * to string
+ *  \note all get_info functions share a buffer, caller must copy value before
+ * 		calling another event_get_foo.
+ * 
+ * This populates a static buffer with info from ioctl. */
+char * event_get_info(int fd);
 
 //debug functions
 /** \brief prints fds in pool to stdout
