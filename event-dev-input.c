@@ -15,7 +15,7 @@ void event_add_all_inputs(){
 	DIR *d;
 	struct dirent *e;
 	char * pathbuf;
-	int pathsize = 0, pathbufsize = 0;
+	int pathsize = 0, pathbufsize = 0, fd;
 	
 	d = opendir("/dev/input");
 	if (d == NULL) perror("opendir");
@@ -31,8 +31,10 @@ void event_add_all_inputs(){
 			}
 			strcpy(pathbuf, "/dev/input/");
 			strcat(pathbuf, e->d_name);
-			printf("%s\n", pathbuf);
-			event_add_source(pathbuf);
+			fd = event_add_source(pathbuf);
+			#ifdef DEBUG
+				printf("[%s] %s\n", event_get_name(fd), pathbuf);
+			#endif //DEBUG
 		}
 	}
 

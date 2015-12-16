@@ -9,6 +9,7 @@
 #include "delay.h"
 #include "event-dev-input.c"
 
+#define VERSION "1.1"
 #define DEFAULT_EVENT_DEVICE "/dev/input/event0"
 
 //commands to invoke external programs

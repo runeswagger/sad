@@ -10,9 +10,9 @@ int main(int argc, char *argv[]){
 	int delay = argc > 1 ? atoi(&argv[1][2]) : 1000/60; //60fps
 	struct input_event event;
 	int running = 1;
+	int fd = event_add_source("/dev/input/event0");
 	
-	event_add_source("/dev/input/event0");	
-	event_get_name(0);
+	printf("%s\n", event_get_name(fd));	
 
 	event_debug_dump_fds();
 	

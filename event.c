@@ -9,7 +9,7 @@ int event_debug_dump_fds(){
 	int i = 0;
 	printf("[");
 	while (i < nfds){
-		printf(" %i ", fds[i]);
+		printf(" %i ", fds[i++]);
 	}
 	printf("]\n");
 	return i;
@@ -44,7 +44,7 @@ int event_add_fd(int fd){
 		nfds++;
 	} 
 	
-	return (index == -1) ? -1 : fd;
+	return (index == -1) ? fd : -1;
 }
 
 int event_remove_fd(int fd){
@@ -100,8 +100,8 @@ struct input_id * event_get_id(int fd){
 
 int event_poll(struct input_event * event){
 	//get next event
-	if(!nfds) return 0; //no sources opened
-	int maxfd = fds[nfds], i = 0;
+	if(nfds == 0) return 0; //no sources opened
+	int maxfd = fds[0], i = 0;
 	struct timeval tv = {.tv_sec = 0, .tv_usec = 0 };
 	fd_set rfds;
 
@@ -119,11 +119,11 @@ int event_poll(struct input_event * event){
 		--i;
 		if(FD_ISSET(fds[i], &rfds)){ //always breaks on the newest one
 			read(fds[i], event, sizeof(struct input_event));
-			break;
+			return fds[i];
 		}
 	} while(i);
 	
-	return i;
+	return 0;
 }
 
 int event_is_newer(struct input_event *a, struct input_event *b){

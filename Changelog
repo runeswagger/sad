@@ -1,0 +1,13 @@
+V1.1:
+	fixed bug in event library where event_poll would return 0 if 
+the first source in the pool emitted an event. this was only not a 
+problem because event-dev-input uses readdir which does not sort by 
+filename meaning some device that isn't the keyboard or mouse was being 
+ignored.
+	
+	fixed some other logical oversights in event.c
+	
+	added Changelog and version info
+V1.0:
+	Version 1.0 named from
+	commit: ce42dca3450026ff98f5b34e0adb9b1692fc8655

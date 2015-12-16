@@ -1,17 +1,18 @@
+CFLAGS = -Wall -Wextra -g
+
 all: sad
 
 sad:
-	gcc -Wall -Wextra -o sad sad.c event.c delay.c -lpthread
-
+	gcc $(CFLAGS) -o sad sad.c event.c delay.c -lpthread
+	
 event-test:
-	gcc -Wall -Wextra -o event-test event-test.c event.c delay.c
+	gcc $(CFLAGS) -o event-test event-test.c event.c delay.c
 
 libvlc-player:
-	gcc -o libvlc-player libvlc-player.c `pkg-config --cflags --libs libvlc`
+	gcc $(CFLAGS) -o libvlc-player libvlc-player.c `pkg-config --cflags --libs libvlc`
 
 documentation:
 	doxygen
 	
 clean:
-	rm -f sad event-test libvlc-player
-	rm -rf doc/*
+	rm -rf sad event-test libvlc-player doc/*
