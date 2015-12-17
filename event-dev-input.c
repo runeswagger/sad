@@ -16,6 +16,7 @@ void event_add_all_inputs(){
 	struct dirent *e;
 	char * pathbuf;
 	int pathsize = 0, pathbufsize = 0, fd;
+	(void)fd; //only used in debug
 	
 	d = opendir("/dev/input");
 	if (d == NULL) perror("opendir");
