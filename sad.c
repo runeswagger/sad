@@ -20,6 +20,7 @@
 #include <sys/un.h>
 #include <dirent.h>
 #include <string.h>
+#include <linux/input.h>
 
 #include "event.h"
 #include "delay.h"
@@ -33,6 +34,11 @@
 #define CMD_VOLUMEDOWN "amixer -q -- sset Master 1dB-"
 
 #define KEYBOARD_QUIT_ENABLED
+#define VERBOSE
+
+//function prototypes
+const char * cmdline_gen(const char * cmd, const char ** args, int nargs);
+void vlc_send_cmd(char* cmd);
 
 char gpios[] = { //this is largely useless, it lists some promising
 	//gpio pins on the raspberrypi v1 header
@@ -40,41 +46,42 @@ char gpios[] = { //this is largely useless, it lists some promising
 
 typedef enum { false, true } bool;
 
-const char * cmdline_gen(const char * cmd, const char ** args, int nargs){
-	//i want to pass a tailored command line to system()
-	int size = 0, i = 0, cursor = 0;
-	char * cmdline = NULL;
+typedef struct {
+	struct input_event event;
+	void (*handler)();
+	void *arg;
+} event_handler;
 
-	//determine total size of string
-	size += strlen(cmd);
-	i = nargs;
-	while(--i){
-		size += strlen(args[i]);
-	}
-	size += nargs + 2; //1 nul terminator and a space after every argument
+//generate a keypress handler initializer
+#define KP(key, handler, arg) { { { 0, 0 }, EV_KEY, key, 1  }, (void(*)())handler, arg }
 
-	//get memory or give up
-	cmdline = malloc(size);
-	if(cmdline == NULL) return NULL;
+event_handler handlers[] = { //this table contains all the events we listen for
+	//add events here. duplicates are allowed, and will run each handler
+	//every time that event is recieved
+	#ifdef VERBOSE
+		//print actions
+		KP(KEY_PLAYPAUSE, printf, "Pause/Unpause Pressed.\n"),
+		KP(KEY_NEXTSONG, printf, "Next Song.\n"),
+		KP(KEY_PREVIOUSSONG, printf, "Prev Song.\n"),
+	#endif
 
-	//concatenate all the strings
-	i = 0;
-	while(cmd[i]) {
-		cmdline[cursor++] = cmd[i++]; //copy command
-	}
-	cmdline[cursor++] = ' ';
+	//playback managment
+	KP(KEY_PLAYPAUSE, vlc_send_cmd, "pause\n"),
+	KP(KEY_NEXTSONG, vlc_send_cmd, "next\n"),
+	KP(KEY_PREVIOUSSONG, vlc_send_cmd, "prev\n"),
 	
-	while(--nargs){
-		i = 0;
-		while((*args)[i]){
-			cmdline[cursor++] = (*args)[i++];
-		}
-		cmdline[cursor++] = ' ';
-		args++; //like args[t++] but without the extra variable
-	}
-	  
-	return cmdline;
-}
+	//volume adjustment
+	KP(KEY_VOLUMEUP, system, CMD_VOLUMEUP),
+	KP(KEY_VOLUMEDOWN, system, CMD_VOLUMEDOWN),
+
+	//program control
+};
+
+#undef KP
+
+int nhandlers = sizeof(handlers)/sizeof(event_handler);
+int vlcsock; //vlc socket handle
+struct input_event event = { }, last = { };
 
 int main(int argc, char *argv[]){
 	//handle some events, so i can make a lean gpio-keys event polling loop
@@ -82,11 +89,10 @@ int main(int argc, char *argv[]){
 		printf("Usage:\n\tsad vlc socket_path library_path\n");
 		return -1;
 	}
-	struct input_event event = { }, last = { };
+	int i; //generic iterator
 	const char * cmdline = cmdline_gen("cvlc", (const char *[]){ "-Ioldrc", "--rc-unix",  argv[1], argv[2], "2>/dev/null", ">/dev/null" }, 6);
 	int running = true; //set this to 0 if you'd like to exit the mainloop for any reason
 	int rc; //some generic iterators and temporaries
-	int vlcsock; //vlc socket handle
 	struct sockaddr_un addr = { AF_UNIX, { } }; //default sockaddr
 	pthread_t vlc;
 
@@ -124,27 +130,6 @@ int main(int argc, char *argv[]){
 						break;
 					}
 					switch (event.code){
-						case KEY_VOLUMEUP:
-							system(CMD_VOLUMEUP);
-							break;
-						case KEY_VOLUMEDOWN:
-							system(CMD_VOLUMEDOWN);
-							break;
-						//vlc control cases, apparently you can't feed a null byte to the socket
-						//without screwing everything up, so that's why the write call truncates
-						//the string constant like that
-						case KEY_PLAYPAUSE:
-							printf("Play pressed.\n");
-							write(vlcsock, "pause\n", 6);
-							break;
-						case KEY_NEXTSONG:
-							printf("Next Song.\n");
-							write(vlcsock, "next\n", 5);
-							break;
-						case KEY_PREVIOUSSONG:
-							printf("Prev Song.\n");
-							write(vlcsock, "prev\n", 5);
-							break;
 						#ifdef KEYBOARD_QUIT_ENABLED
 						case KEY_Q:
 							//q twice exits
@@ -163,6 +148,16 @@ int main(int argc, char *argv[]){
 							break;
 					}
 				default:
+					for(i = 0; i < nhandlers; i++){
+						//match handlers
+						if(event_compare(&event, &(handlers[i].event))){
+							handlers[i].handler(handlers[i].arg);
+							//break;
+							//uncomment if you don't need multiple handlers
+							//for any given event and want some extra
+							//efficiency when searching handlers
+						}
+					}
 					break;
 			}
 
@@ -175,4 +170,45 @@ int main(int argc, char *argv[]){
 	close(vlcsock);
 	
 	return 0;
+}
+
+const char * cmdline_gen(const char * cmd, const char ** args, int nargs){
+	//i want to pass a tailored command line to system()
+	int size = 0, i = 0, cursor = 0;
+	char * cmdline = NULL;
+
+	//determine total size of string
+	size += strlen(cmd);
+	i = nargs;
+	while(--i){
+		size += strlen(args[i]);
+	}
+	size += nargs + 2; //1 nul terminator and a space after every argument
+
+	//get memory or give up
+	cmdline = malloc(size);
+	if(cmdline == NULL) return NULL;
+
+	//concatenate all the strings
+	i = 0;
+	while(cmd[i]) {
+		cmdline[cursor++] = cmd[i++]; //copy command
+	}
+	cmdline[cursor++] = ' ';
+	
+	while(--nargs){
+		i = 0;
+		while((*args)[i]){
+			cmdline[cursor++] = (*args)[i++];
+		}
+		cmdline[cursor++] = ' ';
+		args++; //like args[t++] but without the extra variable
+	}
+	  
+	return cmdline;
+}
+
+void vlc_send_cmd(char* cmd){
+	int len = strlen(cmd);
+	write(vlcsock, cmd, len);
 }
